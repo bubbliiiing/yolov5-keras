@@ -1,4 +1,4 @@
-## YOLOV5：You Only Look Once目标检测模型在pytorch当中的实现（edition v5.0 in Ultralytics）
+## YOLOV5：You Only Look Once目标检测模型在keras当中的实现（edition v5.0 in Ultralytics）
 ---
 
 ## 目录
@@ -13,22 +13,23 @@
 ## 性能情况
 | 训练数据集 | 权值文件名称 | 测试数据集 | 输入图片大小 | mAP 0.5:0.95 | mAP 0.5 |
 | :-----: | :-----: | :------: | :------: | :------: | :-----: |
-| COCO-Train2017 | [yolov5_s.pth](https://github.com/bubbliiiing/yolov5-pytorch/releases/download/v1.0/yolov5_s.pth) | COCO-Val2017 | 640x640 | 35.6 | 53.9
-| COCO-Train2017 | [yolov5_m.pth](https://github.com/bubbliiiing/yolov5-pytorch/releases/download/v1.0/yolov5_m.pth) | COCO-Val2017 | 640x640 | 43.9 | 62.6 
-| COCO-Train2017 | [yolov5_l.pth](https://github.com/bubbliiiing/yolov5-pytorch/releases/download/v1.0/yolov5_l.pth) | COCO-Val2017 | 640x640 | 47.4 | 66.2 
-| COCO-Train2017 | [yolov5_x.pth](https://github.com/bubbliiiing/yolov5-pytorch/releases/download/v1.0/yolov5_x.pth) | COCO-Val2017 | 640x640 | 49.4 | 67.9 
+| COCO-Train2017 | [yolov5_s.pth](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_s.pth) | COCO-Val2017 | 640x640 | 35.6 | 53.9
+| COCO-Train2017 | [yolov5_m.pth](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_m.pth) | COCO-Val2017 | 640x640 | 43.9 | 62.6 
+| COCO-Train2017 | [yolov5_l.pth](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_l.pth) | COCO-Val2017 | 640x640 | 47.4 | 66.2 
+| COCO-Train2017 | [yolov5_x.pth](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_x.pth) | COCO-Val2017 | 640x640 | 49.4 | 67.9 
 
 ## 所需环境
-torch==1.2.0
+keras==2.1.5
+tensorflow-gpu==1.13.2
 
 ## 文件下载
 训练所需的权值可在百度网盘中下载。  
-链接: https://pan.baidu.com/s/18DufVEkngOe-aoA30obLEw     
-提取码: disz    
+链接: https://pan.baidu.com/s/18DufVEkngOe-aoA30obLEw   
+提取码: disz   
 
 VOC数据集下载地址如下，里面已经包括了训练集、测试集、验证集（与测试集一样），无需再次划分：  
-链接: https://pan.baidu.com/s/19Mw2u_df_nBzsC2lg20fQA     
-提取码: j5ge    
+链接: https://pan.baidu.com/s/19Mw2u_df_nBzsC2lg20fQA    
+提取码: j5ge   
 
 ## 训练步骤
 ### a、训练VOC07+12数据集
@@ -96,7 +97,7 @@ _defaults = {
     #   验证集损失较低不代表mAP较高，仅代表该权值在验证集上泛化性能较好。
     #   如果出现shape不匹配，同时要注意训练时的model_path和classes_path参数的修改
     #--------------------------------------------------------------------------#
-    "model_path"        : 'model_data/yolov5_s.pth',
+    "model_path"        : 'model_data/yolov5_s.h5',
     "classes_path"      : 'model_data/coco_classes.txt',
     #---------------------------------------------------------------------#
     #   anchors_path代表先验框对应的txt文件，一般不修改。
@@ -108,9 +109,9 @@ _defaults = {
     #   输入图片的大小，必须为32的倍数。
     #---------------------------------------------------------------------#
     "input_shape"       : [640, 640],
-    #------------------------------------------------------#
+    #---------------------------------------------------------------------#
     #   所使用的YoloV5的版本。s、m、l、x
-    #------------------------------------------------------#
+    #---------------------------------------------------------------------#
     "phi"               : 's',
     #---------------------------------------------------------------------#
     #   只有得分大于置信度的预测框会被保留下来
@@ -121,15 +122,14 @@ _defaults = {
     #---------------------------------------------------------------------#
     "nms_iou"           : 0.3,
     #---------------------------------------------------------------------#
+    #   最大框的数量
+    #---------------------------------------------------------------------#
+    "max_boxes"         : 100,
+    #---------------------------------------------------------------------#
     #   该变量用于控制是否使用letterbox_image对输入图像进行不失真的resize，
     #   在多次测试后，发现关闭letterbox_image直接resize的效果更好
     #---------------------------------------------------------------------#
     "letterbox_image"   : True,
-    #-------------------------------#
-    #   是否使用Cuda
-    #   没有GPU可以设置成False
-    #-------------------------------#
-    "cuda"              : True,
 }
 ```
 3. 运行predict.py，输入  
@@ -155,3 +155,4 @@ img/street.jpg
 https://github.com/qqwweee/keras-yolo3/  
 https://github.com/Cartucho/mAP  
 https://github.com/Ma-Dan/keras-yolo4  
+https://github.com/ultralytics/yolov5
