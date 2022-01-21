@@ -1,4 +1,5 @@
 import math
+from functools import partial
 
 import tensorflow as tf
 from keras import backend as K
@@ -122,7 +123,7 @@ def box_iou(b1, b2):
 #---------------------------------------------------#
 #   loss值计算
 #---------------------------------------------------#
-def yolo_loss(args, input_shape, anchors, anchors_mask, num_classes, balance = [0.4, 1.0, 4], label_smoothing = 0.1, box_ratio = 5, obj_ratio = 1, cls_ratio = 0.5):
+def yolo_loss(args, input_shape, anchors, anchors_mask, num_classes, balance = [0.4, 1.0, 4], label_smoothing = 0.01, box_ratio = 0.05, obj_ratio = 1, cls_ratio = 0.5 / 4):
     num_layers = len(anchors_mask)
     #---------------------------------------------------------------------------------------------------#
     #   将预测结果和实际ground truth分开，args是[*model_body.output, *y_true]
@@ -143,14 +144,7 @@ def yolo_loss(args, input_shape, anchors, anchors_mask, num_classes, balance = [
     #-----------------------------------------------------------#
     input_shape = K.cast(input_shape, K.dtype(y_true[0]))
 
-    #-----------------------------------------------------------#
-    #   取出每一张图片
-    #   m的值就是batch_size
-    #-----------------------------------------------------------#
-    m = K.shape(yolo_outputs[0])[0]
-
     loss    = 0
-    num_pos = 0
     #---------------------------------------------------------------------------------------------------#
     #   y_true是一个列表，包含三个特征层，shape分别为(m,20,20,3,85),(m,40,40,3,85),(m,80,80,3,85)。
     #   yolo_outputs是一个列表，包含三个特征层，shape分别为(m,20,20,3,85),(m,40,40,3,85),(m,80,80,3,85)。
@@ -186,16 +180,11 @@ def yolo_loss(args, input_shape, anchors, anchors_mask, num_classes, balance = [
         pred_box = K.concatenate([pred_xy, pred_wh])
 
         #-----------------------------------------------------------#
-        #   真实框越大，比重越小，小框的比重更大。
-        #-----------------------------------------------------------#
-        box_loss_scale = 2 - y_true[l][...,2:3]*y_true[l][...,3:4]
-
-        #-----------------------------------------------------------#
         #   计算Ciou loss
         #-----------------------------------------------------------#
         raw_true_box    = y_true[l][...,0:4]
         ciou            = box_ciou(pred_box, raw_true_box)
-        ciou_loss       = object_mask * box_loss_scale * (1 - ciou)
+        ciou_loss       = object_mask * (1 - ciou)
         
         #------------------------------------------------------------------------------#
         #   如果该位置本来有框，那么计算1与置信度的交叉熵
@@ -205,21 +194,64 @@ def yolo_loss(args, input_shape, anchors, anchors_mask, num_classes, balance = [
         #   忽略预测结果与真实框非常对应特征点，因为这些框已经比较准了
         #   不适合当作负样本，所以忽略掉。
         #------------------------------------------------------------------------------#
-        confidence_loss = object_mask * K.binary_crossentropy(tf.maximum(ciou, tf.zeros_like(ciou)), raw_pred[...,4:5], from_logits=True)+ \
-                        (1 - object_mask) * K.binary_crossentropy(object_mask, raw_pred[...,4:5], from_logits=True)
-        
-        class_loss = object_mask * K.binary_crossentropy(true_class_probs, raw_pred[...,5:], from_logits=True)
+        tobj            = tf.where(tf.equal(object_mask, 1), tf.maximum(ciou, tf.zeros_like(ciou)), tf.zeros_like(ciou))
+        confidence_loss = K.binary_crossentropy(tobj, raw_pred[..., 4:5], from_logits=True)
 
-        location_loss   = K.sum(ciou_loss) * box_ratio
-        confidence_loss = K.sum(confidence_loss) * balance[l] * obj_ratio
-        class_loss      = K.sum(class_loss) * cls_ratio
+        #-----------------------------------------------------------#
+        #   计算分类损失
+        #-----------------------------------------------------------#
+        class_loss      = object_mask * K.binary_crossentropy(true_class_probs, raw_pred[...,5:], from_logits=True)
+
         #-----------------------------------------------------------#
         #   计算正样本数量
         #-----------------------------------------------------------#
-        num_pos += tf.maximum(K.sum(K.cast(object_mask, tf.float32)), 1)
+        num_pos         = tf.maximum(K.sum(K.cast(object_mask, tf.float32)), 1)
+
+        location_loss   = K.sum(ciou_loss) * box_ratio / num_pos
+        confidence_loss = K.mean(confidence_loss) * balance[l] * obj_ratio
+        class_loss      = K.sum(class_loss) * cls_ratio / num_pos / num_classes
+
         loss    += location_loss + confidence_loss + class_loss
         # if print_loss:
         # loss = tf.Print(loss, [loss, location_loss, confidence_loss, class_loss], message='loss: ')
         
-    loss = loss / num_pos
     return loss
+
+
+def get_lr_scheduler(lr_decay_type, lr, min_lr, total_iters, warmup_iters_ratio = 0.1, warmup_lr_ratio = 0.1, no_aug_iter_ratio = 0.3, step_num = 10):
+    def yolox_warm_cos_lr(lr, min_lr, total_iters, warmup_total_iters, warmup_lr_start, no_aug_iter, iters):
+        if iters <= warmup_total_iters:
+            # lr = (lr - warmup_lr_start) * iters / float(warmup_total_iters) + warmup_lr_start
+            lr = (lr - warmup_lr_start) * pow(iters / float(warmup_total_iters), 2
+            ) + warmup_lr_start
+        elif iters >= total_iters - no_aug_iter:
+            lr = min_lr
+        else:
+            lr = min_lr + 0.5 * (lr - min_lr) * (
+                1.0
+                + math.cos(
+                    math.pi
+                    * (iters - warmup_total_iters)
+                    / (total_iters - warmup_total_iters - no_aug_iter)
+                )
+            )
+        return lr
+
+    def step_lr(lr, decay_rate, step_size, iters):
+        if step_size < 1:
+            raise ValueError("step_size must above 1.")
+        n       = iters // step_size
+        out_lr  = lr * decay_rate ** n
+        return out_lr
+
+    if lr_decay_type == "cos":
+        warmup_total_iters  = min(max(warmup_iters_ratio * total_iters, 1), 3)
+        warmup_lr_start     = max(warmup_lr_ratio * lr, 1e-6)
+        no_aug_iter         = min(max(no_aug_iter_ratio * total_iters, 1), 15)
+        func = partial(yolox_warm_cos_lr ,lr, min_lr, total_iters, warmup_total_iters, warmup_lr_start, no_aug_iter)
+    else:
+        decay_rate  = (min_lr / lr) ** (1 / (step_num - 1))
+        step_size   = total_iters / step_num
+        func = partial(step_lr, lr, decay_rate, step_size)
+
+    return func
