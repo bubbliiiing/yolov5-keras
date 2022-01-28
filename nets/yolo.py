@@ -59,8 +59,17 @@ def get_train_model(model_body, input_shape, num_classes, anchors, anchors_mask,
         yolo_loss, 
         output_shape    = (1, ), 
         name            = 'yolo_loss', 
-        arguments       = {'input_shape' : input_shape, 'anchors' : anchors, 'anchors_mask' : anchors_mask, 
-                           'num_classes' : num_classes, 'label_smoothing' : label_smoothing}
+        arguments       = {
+            'input_shape'       : input_shape, 
+            'anchors'           : anchors, 
+            'anchors_mask'      : anchors_mask, 
+            'num_classes'       : num_classes, 
+            'label_smoothing'   : label_smoothing, 
+            'balance'           : [0.4, 1.0, 4],
+            'box_ratio'         : 0.05,
+            'obj_ratio'         : 1 * (input_shape[0] * input_shape[1]) / (640 ** 2), 
+            'cls_ratio'         : 0.5 * (num_classes / 80)
+        }
     )([*model_body.output, *y_true])
     model       = Model([model_body.input, *y_true], model_loss)
     return model
