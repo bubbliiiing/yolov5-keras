@@ -280,7 +280,7 @@ if __name__ == "__main__":
         #---------------------------------------#
         if Freeze_Train:
             batch_size  = Unfreeze_batch_size
-            start_epoch = Freeze_Epoch
+            start_epoch = Freeze_Epoch if start_epoch < Freeze_Epoch else start_epoch
             end_epoch   = UnFreeze_Epoch
                 
             for i in range(len(model.layers)): 
