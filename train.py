@@ -4,6 +4,7 @@ import os
 import keras.backend as K
 from keras.callbacks import (EarlyStopping, LearningRateScheduler,
                              ModelCheckpoint, TensorBoard)
+from keras.layers import Conv2D, Dense, DepthwiseConv2D
 from keras.optimizers import SGD, Adam
 from keras.regularizers import l2
 
@@ -192,9 +193,11 @@ if __name__ == "__main__":
     num_train   = len(train_lines)
     num_val     = len(val_lines)
 
-    for i in range(len(model_body.layers)):
-        if hasattr(model_body.layers[i], "kernel"):
-            model_body.layers[i].add_loss(l2(weight_decay)(model_body.layers[i].kernel))
+    for layer in model_body.layers:
+        if isinstance(layer, DepthwiseConv2D):
+                layer.add_loss(l2(weight_decay)(layer.depthwise_kernel))
+        elif isinstance(layer, Conv2D) or isinstance(layer, Dense):
+                layer.add_loss(l2(weight_decay)(layer.kernel))
 
     #------------------------------------------------------#
     #   主干特征提取网络特征通用，冻结训练可以加快训练速度
