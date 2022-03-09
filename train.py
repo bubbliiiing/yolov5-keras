@@ -96,7 +96,7 @@ if __name__ == "__main__":
     #       Init_Epoch = 0，UnFreeze_Epoch = 100，Freeze_Train = False（不冻结训练）
     #       其中：UnFreeze_Epoch可以在100-300之间调整。optimizer_type = 'sgd'，Init_lr = 1e-2。
     #   （二）从0开始训练：
-    #       Init_Epoch = 0，UnFreeze_Epoch >= 300，batch >= 16，Freeze_Train = False（不冻结训练）
+    #       Init_Epoch = 0，UnFreeze_Epoch >= 300，Unfreeze_batch_size >= 16，Freeze_Train = False（不冻结训练）
     #       其中：UnFreeze_Epoch尽量不小于300。optimizer_type = 'sgd'，Init_lr = 1e-2。
     #   （三）batch_size的设置：
     #       在显卡能够接受的范围内，以大为好。显存不足与数据集大小无关，提示显存不足（OOM或者CUDA out of memory）请调小batch_size。
