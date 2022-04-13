@@ -36,6 +36,9 @@ def yolo_correct_boxes(box_xy, box_wh, input_shape, image_shape, letterbox_image
 #   将预测值的每个特征层调成真实值
 #---------------------------------------------------#
 def get_anchors_and_decode(feats, anchors, num_classes, input_shape, calc_loss=False):
+    #---------------------------------------------------#
+    #   计算先验框的数量，num_anchors = 3
+    #---------------------------------------------------#
     num_anchors = len(anchors)
     #------------------------------------------#
     #   grid_shape指的是特征层的高和宽
@@ -59,6 +62,7 @@ def get_anchors_and_decode(feats, anchors, num_classes, input_shape, calc_loss=F
     #   4代表的是中心宽高的调整参数
     #   1代表的是框的置信度
     #   80代表的是种类的置信度
+    #   batch_size, 20, 20, 3, 5 + num_classes
     #---------------------------------------------------#
     feats           = K.reshape(feats, [-1, grid_shape[0], grid_shape[1], num_anchors, num_classes + 5])
     #------------------------------------------#
@@ -131,6 +135,9 @@ def DecodeBox(outputs,
     boxes_out   = []
     scores_out  = []
     classes_out = []
+    #-----------------------------------------------------------#
+    #   筛选出一定区域内属于同一种类得分最大的框
+    #-----------------------------------------------------------#
     for c in range(num_classes):
         #-----------------------------------------------------------#
         #   取出所有box_scores >= score_threshold的框，和成绩
@@ -176,15 +183,22 @@ if __name__ == "__main__":
         # feats     [batch_size, 20, 20, 3 * (5 + num_classes)]
         # anchors   [3, 2]
         # num_classes 
-        # 3
+        
+        #------------------------------------------#
+        #   grid_shape 3
+        #------------------------------------------#
         num_anchors = len(anchors)
         #------------------------------------------#
         #   grid_shape指的是特征层的高和宽
         #   grid_shape [20, 20] 
+        #   h = 20
+        #   w = 20
         #------------------------------------------#
         grid_shape = np.shape(feats)[1:3]
         #--------------------------------------------------------------------#
         #   获得各个特征点的坐标信息。生成的shape为(20, 20, num_anchors, 2)
+        #   [0, 1, 2, 3, 4 ……, 19] => [1, 20, 1, 1] => [20, 20, 3, 1]
+        #   [0, 1, 2, 3, 4 ……, 19] => [20, 1, 1, 1] => [20, 20, 3, 1]
         #   grid_x [20, 20, 3, 1]
         #   grid_y [20, 20, 3, 1]
         #   grid   [20, 20, 3, 2]
@@ -207,12 +221,20 @@ if __name__ == "__main__":
         #   1代表的是框的置信度
         #   80代表的是种类的置信度
         #   [batch_size, 20, 20, 3 * (5 + num_classes)]
-        #   [batch_size, 20, 20, 3, 5 + num_classes]
+        #   [batch_size, 20, 20, 3, 4 + 1 + num_classes]
         #---------------------------------------------------#
         feats           = np.reshape(feats, [-1, grid_shape[0], grid_shape[1], num_anchors, num_classes + 5])
 
         #------------------------------------------#
         #   对先验框进行解码，并进行归一化
+        #   取出4个回归系数里面前2个序号的内容，取sigmoid，值固定到0-1之间
+        #                                       乘上2，值固定到0-2之间
+        #                                       减去0.5，值固定到-0.5-1.5之间
+        #                                       加上网格坐标，获得预测框中心
+        #   取出4个回归系数里面后2个序号的内容，取sigmoid，值固定到0-1之间
+        #                                       乘上2，值固定到0-2之间
+        #                                       取平方，值固定到0-4之间
+        #                                       乘上先验框的宽高，最终获得预测框的宽高
         #------------------------------------------#
         box_xy          = (sigmoid(feats[..., :2]) * 2 - 0.5 + grid)
         box_wh          = (sigmoid(feats[..., 2:4]) * 2) ** 2 * anchors_tensor
@@ -221,43 +243,52 @@ if __name__ == "__main__":
         #------------------------------------------#
         box_confidence  = sigmoid(feats[..., 4:5])
         box_class_probs = sigmoid(feats[..., 5:])
+        
+        grid_x = grid_x * 32
+        grid_y = grid_y * 32
+        box_xy = box_xy * 32
+        
+        point_h = 5
+        point_w = 5
 
-        box_wh          = box_wh / 32
-        anchors_tensor  = anchors_tensor / 32
+        from PIL import Image
+        img = Image.open("img/street.jpg").resize([640, 640])
+        
         fig = plt.figure()
         ax  = fig.add_subplot(121)
-        plt.ylim(-2, 22)
-        plt.xlim(-2, 22)
-        plt.scatter(grid_x,grid_y)
-        plt.scatter(5, 5, c='black')
+        plt.imshow(img, alpha=0.5)
+        plt.ylim(-10, 650)
+        plt.xlim(-10, 650)
+        plt.scatter(grid_x, grid_y)
+        plt.scatter(point_h * 32, point_w * 32, c='black')
         plt.gca().invert_yaxis()
 
-        anchor_left = grid_x - anchors_tensor/2 
-        anchor_top  = grid_y - anchors_tensor/2 
-        print(np.shape(anchors_tensor))
+        anchor_left = grid_x  - anchors_tensor / 2
+        anchor_top  = grid_y - anchors_tensor / 2
         print(np.shape(box_xy))
-        rect1 = plt.Rectangle([anchor_left[5,5,0,0],anchor_top[5,5,0,1]],anchors_tensor[0,0,0,0],anchors_tensor[0,0,0,1],color="r",fill=False)
-        rect2 = plt.Rectangle([anchor_left[5,5,1,0],anchor_top[5,5,1,1]],anchors_tensor[0,0,1,0],anchors_tensor[0,0,1,1],color="r",fill=False)
-        rect3 = plt.Rectangle([anchor_left[5,5,2,0],anchor_top[5,5,2,1]],anchors_tensor[0,0,2,0],anchors_tensor[0,0,2,1],color="r",fill=False)
+        rect1 = plt.Rectangle([anchor_left[point_h, point_w, 0, 0], anchor_top[point_h, point_w, 0, 1]], anchors_tensor[point_h, point_w, 0, 0], anchors_tensor[point_h, point_w, 0, 1], color="r", fill=False)
+        rect2 = plt.Rectangle([anchor_left[point_h, point_w, 1, 0], anchor_top[point_h, point_w, 1, 1]], anchors_tensor[point_h, point_w, 1, 0], anchors_tensor[point_h, point_w, 1, 1], color="r", fill=False)
+        rect3 = plt.Rectangle([anchor_left[point_h, point_w, 2, 0], anchor_top[point_h, point_w, 2, 1]], anchors_tensor[point_h, point_w, 2, 0], anchors_tensor[point_h, point_w, 2, 1], color="r", fill=False)
 
         ax.add_patch(rect1)
         ax.add_patch(rect2)
         ax.add_patch(rect3)
 
         ax = fig.add_subplot(122)
-        plt.ylim(-2, 22)
-        plt.xlim(-2, 22)
-        plt.scatter(grid_x,grid_y)
-        plt.scatter(5, 5, c='black')
-        plt.scatter(box_xy[0, 5, 5, :, 0],box_xy[0, 5, 5, :, 1],c='r')
+        plt.imshow(img, alpha=0.5)
+        plt.ylim(-10, 650)
+        plt.xlim(-10, 650)
+        plt.scatter(grid_x, grid_y)
+        plt.scatter(point_h * 32, point_w * 32, c='black')
+        plt.scatter(box_xy[0, point_h, point_w, :, 0], box_xy[0, point_h, point_w, :, 1], c='r')
         plt.gca().invert_yaxis()
 
-        pre_left    = box_xy[...,0] - box_wh[...,0] / 2 
-        pre_top     = box_xy[...,1] - box_wh[...,1] / 2 
+        pre_left    = box_xy[...,0] - box_wh[...,0] / 2
+        pre_top     = box_xy[...,1] - box_wh[...,1] / 2
 
-        rect1 = plt.Rectangle([pre_left[0,5,5,0],pre_top[0,5,5,0]],box_wh[0,5,5,0,0],box_wh[0,5,5,0,1],color="r",fill=False)
-        rect2 = plt.Rectangle([pre_left[0,5,5,1],pre_top[0,5,5,1]],box_wh[0,5,5,1,0],box_wh[0,5,5,1,1],color="r",fill=False)
-        rect3 = plt.Rectangle([pre_left[0,5,5,2],pre_top[0,5,5,2]],box_wh[0,5,5,2,0],box_wh[0,5,5,2,1],color="r",fill=False)
+        rect1 = plt.Rectangle([pre_left[0, point_h, point_w, 0], pre_top[0, point_h, point_w, 0]], box_wh[0, point_h, point_w, 0, 0], box_wh[0, point_h, point_w, 0, 1], color="r", fill=False)
+        rect2 = plt.Rectangle([pre_left[0, point_h, point_w, 1], pre_top[0, point_h, point_w, 1]], box_wh[0, point_h, point_w, 1, 0], box_wh[0, point_h, point_w, 1, 1], color="r", fill=False)
+        rect3 = plt.Rectangle([pre_left[0, point_h, point_w, 2], pre_top[0, point_h, point_w, 2]], box_wh[0, point_h, point_w, 2, 0], box_wh[0, point_h, point_w, 2, 1], color="r", fill=False)
 
         ax.add_patch(rect1)
         ax.add_patch(rect2)

@@ -126,20 +126,27 @@ def resblock_body(x, num_filters, num_blocks, expansion=0.5, shortcut=True, last
 #   输出为三个有效特征层
 #---------------------------------------------------#
 def darknet_body(x, base_channels, base_depth):
+    #---------------------------------------------------#
+    #   base_channels 默认值为64
+    #---------------------------------------------------#
     # 640, 640, 3 => 320, 320, 12
     x = Focus()(x)
     # 320, 320, 12 => 320, 320, 64
     x = DarknetConv2D_BN_SiLU(base_channels, (3, 3), name = 'backbone.stem.conv')(x)
+    
     # 320, 320, 64 => 160, 160, 128
     x = resblock_body(x, base_channels * 2, base_depth, name = 'backbone.dark2')
+    
     # 160, 160, 128 => 80, 80, 256
     x = resblock_body(x, base_channels * 4, base_depth * 3, name = 'backbone.dark3')
     feat1 = x
+    
     # 80, 80, 256 => 40, 40, 512
     x = resblock_body(x, base_channels * 8, base_depth * 3, name = 'backbone.dark4')
     feat2 = x
+    
     # 40, 40, 512 => 20, 20, 1024
     x = resblock_body(x, base_channels * 16, base_depth, shortcut=False, last=True, name = 'backbone.dark5')
     feat3 = x
-    return feat1,feat2,feat3
+    return feat1, feat2, feat3
 

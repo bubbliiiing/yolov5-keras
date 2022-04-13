@@ -384,6 +384,7 @@ class YoloDatasets(keras.utils.Sequence):
         assert (true_boxes[..., 4]<num_classes).all(), 'class id must be less than num_classes'
         #-----------------------------------------------------------#
         #   获得框的坐标和图片的大小
+        #   [640, 640]
         #-----------------------------------------------------------#
         true_boxes  = np.array(true_boxes, dtype='float32')
         input_shape = np.array(input_shape, dtype='int32')
@@ -394,16 +395,22 @@ class YoloDatasets(keras.utils.Sequence):
         num_layers  = len(self.anchors_mask)
         #-----------------------------------------------------------#
         #   m为图片数量，grid_shapes为网格的shape
+        #   20, 20  640/32 = 20
+        #   40, 40
+        #   80, 80
         #-----------------------------------------------------------#
         m           = true_boxes.shape[0]
         grid_shapes = [input_shape // {0:32, 1:16, 2:8}[l] for l in range(num_layers)]
         #-----------------------------------------------------------#
-        #   y_true的格式为(m,13,13,3,85)(m,26,26,3,85)(m,52,52,3,85)
+        #   y_true的格式为
+        #   m,20,20,3,5+num_classses
+        #   m,40,40,3,5+num_classses
+        #   m,80,80,3,5+num_classses
         #-----------------------------------------------------------#
         y_true = [np.zeros((m, grid_shapes[l][0], grid_shapes[l][1], len(self.anchors_mask[l]), 5 + num_classes),
                     dtype='float32') for l in range(num_layers)]
         #-----------------------------------------------------#
-        #   anchors_best_ratio
+        #   用于帮助先验框找到最对应的真实框
         #-----------------------------------------------------#
         box_best_ratios = [np.zeros((m, grid_shapes[l][0], grid_shapes[l][1], len(self.anchors_mask[l])),
                     dtype='float32') for l in range(num_layers)]
@@ -438,13 +445,18 @@ class YoloDatasets(keras.utils.Sequence):
 
             if len(wh) == 0: continue
             #-------------------------------------------------------#
-            #   wh                      : num_true_box, 2
-            #   anchors                 : 9, 2
-            #
+            #   wh                          : num_true_box, 2
+            #   np.expand_dims(wh, 1)       : num_true_box, 1, 2
+            #   anchors                     : 9, 2
+            #   np.expand_dims(anchors, 0)  : 1, 9, 2
+            #   
+            #   ratios_of_gt_anchors代表每一个真实框和每一个先验框的宽高的比值
             #   ratios_of_gt_anchors    : num_true_box, 9, 2
+            #   ratios_of_anchors_gt代表每一个先验框和每一个真实框的宽高的比值
             #   ratios_of_anchors_gt    : num_true_box, 9, 2
             #
             #   ratios                  : num_true_box, 9, 4
+            #   max_ratios代表每一个真实框和每一个先验框的宽高的比值的最大值
             #   max_ratios              : num_true_box, 9
             #-------------------------------------------------------#
             ratios_of_gt_anchors = np.expand_dims(wh, 1) / np.expand_dims(anchors, 0)
@@ -488,7 +500,7 @@ class YoloDatasets(keras.utils.Sequence):
                             #-----------------------------------------------------------#
                             c = true_boxes[b, t, 4].astype('int32')
                             #-----------------------------------------------------------#
-                            #   y_true的shape为(m,13,13,3,85)(m,26,26,3,85)(m,52,52,3,85)
+                            #   y_true的shape为(m,20,20,3,85)(m,40,40,3,85)(m,80,80,3,85)
                             #   最后的85可以拆分成4+1+80，4代表的是框的中心与宽高、
                             #   1代表的是置信度、80代表的是种类
                             #-----------------------------------------------------------#
