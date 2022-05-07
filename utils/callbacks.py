@@ -107,7 +107,7 @@ class EvalCallback(keras.callbacks.Callback):
         #   后处理的内容包括，解码、非极大抑制、门限筛选等
         #---------------------------------------------------------#
         self.boxes, self.scores, self.classes  = DecodeBox(
-            self.model_body.output, 
+            self.model_body.get_output_at(0), 
             self.anchors,
             self.num_classes, 
             self.input_image_shape, 
@@ -147,7 +147,7 @@ class EvalCallback(keras.callbacks.Callback):
         out_boxes, out_scores, out_classes = self.sess.run(
             [self.boxes, self.scores, self.classes],
             feed_dict={
-                self.model_body.input: image_data,
+                self.model_body.get_input_at(0): image_data,
                 self.input_image_shape: [image.size[1], image.size[0]],
                 K.learning_phase(): 0})
 
