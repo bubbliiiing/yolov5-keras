@@ -31,10 +31,10 @@ YoloX | https://github.com/bubbliiiing/yolox-keras
 ## 性能情况
 | 训练数据集 | 权值文件名称 | 测试数据集 | 输入图片大小 | mAP 0.5:0.95 | mAP 0.5 |
 | :-----: | :-----: | :------: | :------: | :------: | :-----: |
-| COCO-Train2017 | [yolov5_s.pth](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_s.pth) | COCO-Val2017 | 640x640 | 35.6 | 53.9
-| COCO-Train2017 | [yolov5_m.pth](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_m.pth) | COCO-Val2017 | 640x640 | 43.9 | 62.6 
-| COCO-Train2017 | [yolov5_l.pth](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_l.pth) | COCO-Val2017 | 640x640 | 47.4 | 66.2 
-| COCO-Train2017 | [yolov5_x.pth](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_x.pth) | COCO-Val2017 | 640x640 | 49.4 | 67.9 
+| COCO-Train2017 | [yolov5_s.h5](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_s.h5) | COCO-Val2017 | 640x640 | 35.6 | 53.9
+| COCO-Train2017 | [yolov5_m.h5](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_m.h5) | COCO-Val2017 | 640x640 | 43.9 | 62.6 
+| COCO-Train2017 | [yolov5_l.h5](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_l.h5) | COCO-Val2017 | 640x640 | 47.4 | 66.2 
+| COCO-Train2017 | [yolov5_x.h5](https://github.com/bubbliiiing/yolov5-keras/releases/download/v1.0/yolov5_x.h5) | COCO-Val2017 | 640x640 | 49.4 | 67.9 
 
 ## 所需环境
 keras==2.1.5   
